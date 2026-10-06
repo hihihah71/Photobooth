@@ -8,8 +8,39 @@ import collageThumb from '../assets/frames/collage-3-thumb.svg';
 import snoopyTiles from '../assets/frames/snoopy-tiles.png';
 import snoopyStars from '../assets/frames/snoopy-stars.png';
 import snoopySpace from '../assets/frames/snoopy-space.png';
+import retroNightTriple from '../assets/frames/1.png';
+import retroNightDuo from '../assets/frames/2.png';
+import retroNightTripleThumb from '../assets/frames/retro-night-triple-thumb.webp';
+import retroNightDuoThumb from '../assets/frames/retro-night-duo-thumb.webp';
 
 export const frames: FrameConfig[] = [
+  {
+    id: 'retro-night-triple',
+    name: 'Retro Night Triple',
+    thumbnail: retroNightTripleThumb,
+    overlay: retroNightTriple,
+    output: { width: 2160, height: 3840 },
+    background: { color: '#170b1d' },
+    revealAnimation: 'strip-print',
+    slots: [
+      { x: 435, y: 479, width: 1327, height: 810 },
+      { x: 435, y: 1434, width: 1327, height: 782 },
+      { x: 435, y: 2364, width: 1327, height: 786 },
+    ],
+  },
+  {
+    id: 'retro-night-duo',
+    name: 'Retro Night Duo',
+    thumbnail: retroNightDuoThumb,
+    overlay: retroNightDuo,
+    output: { width: 3840, height: 2160 },
+    background: { color: '#170b1d' },
+    revealAnimation: 'fade-in',
+    slots: [
+      { x: 255, y: 410, width: 1585, height: 843 },
+      { x: 1998, y: 1148, width: 1611, height: 794 },
+    ],
+  },
   {
     id: 'snoopy-tiles',
     name: 'Snoopy Diner',
