@@ -1,4 +1,5 @@
-import type { FrameConfig, SlotImage } from '../types';
+import type { FrameConfig, PhotoFilterId, SlotImage } from '../types';
+import { getPhotoFilter } from '../config/photoFilters';
 import { computeCoverSource } from './coverFit';
 import { fileToImage } from './fileToImage';
 
@@ -12,6 +13,7 @@ export async function drawComposite(
   canvas: HTMLCanvasElement,
   frame: FrameConfig,
   slotImages: (SlotImage | null)[],
+  photoFilter: PhotoFilterId,
 ): Promise<Blob> {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas 2D context unavailable');
@@ -37,6 +39,7 @@ export async function drawComposite(
     ctx.beginPath();
     ctx.rect(slot.x, slot.y, slot.width, slot.height);
     ctx.clip();
+    ctx.filter = getPhotoFilter(photoFilter).css;
 
     const src = computeCoverSource(
       slotImage.image.naturalWidth,

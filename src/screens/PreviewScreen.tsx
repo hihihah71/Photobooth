@@ -93,6 +93,7 @@ export function PreviewScreen({ state, frame, dispatch }: Props) {
             ref={canvasRef}
             frame={frame}
             slotImages={state.slotImages}
+            photoFilter={state.photoFilter}
             className="preview-canvas"
           />
         </div>

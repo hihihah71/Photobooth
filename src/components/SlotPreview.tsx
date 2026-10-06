@@ -1,11 +1,13 @@
 import { useRef } from 'react';
-import type { SlotConfig, SlotImage } from '../types';
+import type { PhotoFilterId, SlotConfig, SlotImage } from '../types';
 import { useSlotTransform } from '../hooks/useSlotTransform';
+import { getPhotoFilter } from '../config/photoFilters';
 
 type Props = {
   slot: SlotConfig;
   slotImage: SlotImage | null;
   scale: number;
+  photoFilter?: PhotoFilterId;
   /** Lets gestures bind at all (i.e. the AdjustScreen). */
   interactive?: boolean;
   /** Visual selection highlight. Independent of gesture behavior. */
@@ -37,6 +39,7 @@ export function SlotPreview({
   slot,
   slotImage,
   scale,
+  photoFilter = 'natural',
   interactive = false,
   outlined = false,
   swapMode = null,
@@ -150,6 +153,7 @@ export function SlotPreview({
     transform: `translate(${t.offsetX * scale}px, ${t.offsetY * scale}px) scale(${t.scale})`,
     transformOrigin: 'center center',
     pointerEvents: 'none',
+    filter: getPhotoFilter(photoFilter).css,
   };
 
   return (

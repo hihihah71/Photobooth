@@ -18,6 +18,7 @@ npm run build && npm run preview
 ## QR sharing with Cloudinary
 
 The Share button uploads the finished photo using a Cloudinary unsigned upload preset, then displays a download link and QR code for phones.
+Share uploads larger than 3 MB are automatically converted to a high-quality JPEG and, only if necessary, proportionally resized to stay around 3 MB for faster mobile downloads. The original local Gallery/Download image is not changed.
 
 1. Create an unsigned upload preset in Cloudinary.
 2. Restrict the preset to image formats such as PNG/JPEG/WebP and configure a dedicated asset folder.

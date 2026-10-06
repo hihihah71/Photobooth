@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useRef } from 'react';
-import type { FrameConfig, SlotImage } from '../types';
+import type { FrameConfig, PhotoFilterId, SlotImage } from '../types';
 import { drawComposite } from '../utils/composite';
 
 export type CompositeCanvasHandle = {
@@ -9,11 +9,12 @@ export type CompositeCanvasHandle = {
 type Props = {
   frame: FrameConfig;
   slotImages: (SlotImage | null)[];
+  photoFilter: PhotoFilterId;
   className?: string;
   ref?: React.Ref<CompositeCanvasHandle>;
 };
 
-export function CompositeCanvas({ frame, slotImages, className, ref }: Props) {
+export function CompositeCanvas({ frame, slotImages, photoFilter, className, ref }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastBlobRef = useRef<Promise<Blob> | null>(null);
 
@@ -21,7 +22,7 @@ export function CompositeCanvas({ frame, slotImages, className, ref }: Props) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     let cancelled = false;
-    const job = drawComposite(canvas, frame, slotImages);
+    const job = drawComposite(canvas, frame, slotImages, photoFilter);
     lastBlobRef.current = job;
     job.catch((err) => {
       if (!cancelled) console.error('Composite render failed', err);
@@ -29,7 +30,7 @@ export function CompositeCanvas({ frame, slotImages, className, ref }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [frame, slotImages]);
+  }, [frame, slotImages, photoFilter]);
 
   useImperativeHandle(
     ref,
@@ -37,7 +38,7 @@ export function CompositeCanvas({ frame, slotImages, className, ref }: Props) {
       toBlob: async () => {
         const canvas = canvasRef.current;
         if (!canvas) throw new Error('Canvas not mounted');
-        await drawComposite(canvas, frame, slotImages);
+        await drawComposite(canvas, frame, slotImages, photoFilter);
         return new Promise<Blob>((resolve, reject) => {
           canvas.toBlob(
             (blob) => {
@@ -49,7 +50,7 @@ export function CompositeCanvas({ frame, slotImages, className, ref }: Props) {
         });
       },
     }),
-    [frame, slotImages],
+    [frame, slotImages, photoFilter],
   );
 
   return <canvas ref={canvasRef} className={`composite-canvas ${className ?? ''}`} />;

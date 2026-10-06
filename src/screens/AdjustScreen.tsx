@@ -4,6 +4,7 @@ import type { Action } from '../state/appReducer';
 import { SlotPreview } from '../components/SlotPreview';
 import { identityTransform } from '../utils/coverFit';
 import { loadValidatedImage } from '../utils/imageValidation';
+import { photoFilters } from '../config/photoFilters';
 
 type Props = {
   state: AppState;
@@ -149,6 +150,39 @@ export function AdjustScreen({ state, frame, dispatch, allFrames }: Props) {
       </p>
       {uploadError && <p className="warning">{uploadError}</p>}
 
+      <section className="filter-picker" aria-labelledby="filter-picker-title">
+        <div className="filter-picker-heading">
+          <span id="filter-picker-title" className="filter-picker-title">Photo filter</span>
+          <span className="muted">Applied to every photo, not the frame</span>
+        </div>
+        <div className="filter-strip" role="radiogroup" aria-label="Photo filter">
+          {photoFilters.map((filter) => {
+            const active = state.photoFilter === filter.id;
+            const previewImage = state.slotImages.find(Boolean);
+            return (
+              <button
+                key={filter.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                className={`filter-option ${active ? 'active' : ''}`}
+                onClick={() => dispatch({ type: 'setPhotoFilter', filter: filter.id })}
+                title={filter.description}
+              >
+                {previewImage && (
+                  <img
+                    src={previewImage.sourceUrl}
+                    alt=""
+                    style={{ filter: filter.css }}
+                  />
+                )}
+                <span>{filter.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       <input
         ref={fileInputRef}
         type="file"
@@ -192,6 +226,7 @@ export function AdjustScreen({ state, frame, dispatch, allFrames }: Props) {
                 slot={slot}
                 slotImage={state.slotImages[i]}
                 scale={scale}
+                photoFilter={state.photoFilter}
                 interactive
                 outlined={menuFor === i}
                 swapMode={swapMode}

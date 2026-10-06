@@ -1,4 +1,5 @@
 import type { AppState, AppStep, SlotImage, SlotTransform } from '../types';
+import { DEFAULT_PHOTO_FILTER } from '../config/photoFilters';
 
 export type Action =
   | { type: 'selectFrame'; frameId: string; slotCount: number }
@@ -8,6 +9,7 @@ export type Action =
   | { type: 'clearSlotImage'; index: number }
   | { type: 'swapSlots'; a: number; b: number }
   | { type: 'updateSlotTransform'; index: number; transform: SlotTransform }
+  | { type: 'setPhotoFilter'; filter: AppState['photoFilter'] }
   | { type: 'setActiveSlot'; index: number }
   | { type: 'reset' };
 
@@ -16,6 +18,7 @@ export const initialState: AppState = {
   frameId: null,
   slotImages: [],
   activeSlot: 0,
+  photoFilter: DEFAULT_PHOTO_FILTER,
 };
 
 export function appReducer(state: AppState, action: Action): AppState {
@@ -26,6 +29,7 @@ export function appReducer(state: AppState, action: Action): AppState {
         frameId: action.frameId,
         slotImages: Array(action.slotCount).fill(null),
         activeSlot: 0,
+        photoFilter: DEFAULT_PHOTO_FILTER,
       };
 
     case 'swapFrame': {
@@ -83,6 +87,9 @@ export function appReducer(state: AppState, action: Action): AppState {
 
     case 'setActiveSlot':
       return { ...state, activeSlot: action.index };
+
+    case 'setPhotoFilter':
+      return { ...state, photoFilter: action.filter };
 
     case 'reset':
       return initialState;

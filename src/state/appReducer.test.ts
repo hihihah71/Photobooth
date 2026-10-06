@@ -9,12 +9,18 @@ const photo: SlotImage = {
 };
 
 describe('appReducer frame swaps', () => {
+  it('changes the photo filter', () => {
+    const next = appReducer(initialState, { type: 'setPhotoFilter', filter: 'soft' });
+    expect(next.photoFilter).toBe('soft');
+  });
+
   it('selects the first empty slot when switching to a larger frame', () => {
     const state: AppState = {
       step: 'adjust',
       frameId: 'one-slot',
       slotImages: [photo],
       activeSlot: 0,
+      photoFilter: 'natural',
     };
 
     const next = appReducer(state, {
@@ -33,6 +39,7 @@ describe('appReducer frame swaps', () => {
       frameId: 'three-slots',
       slotImages: [photo, photo, photo],
       activeSlot: 2,
+      photoFilter: 'warm',
     };
 
     const next = appReducer(state, {
@@ -44,6 +51,7 @@ describe('appReducer frame swaps', () => {
     expect(next.slotImages).toHaveLength(3);
     expect(next.slotImages).toEqual([photo, photo, photo]);
     expect(next.activeSlot).toBe(0);
+    expect(next.photoFilter).toBe('warm');
   });
 
   it('resets the complete capture state', () => {
@@ -52,6 +60,7 @@ describe('appReducer frame swaps', () => {
       frameId: 'frame',
       slotImages: [photo],
       activeSlot: 0,
+      photoFilter: 'vivid',
     };
 
     expect(appReducer(dirty, { type: 'reset' })).toBe(initialState);

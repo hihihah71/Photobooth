@@ -47,6 +47,8 @@ export type SlotImage = {
   transform: SlotTransform;
 };
 
+export type PhotoFilterId = 'natural' | 'bright' | 'warm' | 'soft' | 'vivid';
+
 export type AppStep =
   | 'home'
   | 'capture'
@@ -61,6 +63,7 @@ export type AppState = {
   frameId: string | null;
   slotImages: (SlotImage | null)[];
   activeSlot: number;
+  photoFilter: PhotoFilterId;
 };
 
 export type SavedPhoto = {

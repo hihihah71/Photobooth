@@ -1,3 +1,5 @@
+import { prepareShareImage } from './shareImageOptimization';
+
 export type CloudinaryShareResult = {
   viewUrl: string;
   downloadUrl: string;
@@ -25,8 +27,12 @@ export async function uploadPhotoForSharing(
     );
   }
 
+  const prepared = await prepareShareImage(blob, filename);
   const form = new FormData();
-  form.append('file', new File([blob], filename, { type: blob.type || 'image/png' }));
+  form.append(
+    'file',
+    new File([prepared.blob], prepared.filename, { type: prepared.blob.type || 'image/jpeg' }),
+  );
   form.append('upload_preset', uploadPreset);
 
   const response = await fetch(
@@ -49,7 +55,7 @@ export async function uploadPhotoForSharing(
   const viewUrl = validateCloudinaryUrl(body.secure_url);
   return {
     viewUrl,
-    downloadUrl: makeCloudinaryAttachmentUrl(viewUrl, filename),
+    downloadUrl: makeCloudinaryAttachmentUrl(viewUrl, prepared.filename),
     publicId: body.public_id,
   };
 }
