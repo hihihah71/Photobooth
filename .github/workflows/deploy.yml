@@ -1,8 +1,6 @@
 name: Deploy to GitHub Pages
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 # Only one live deploy at a time. Don't cancel in-flight runs so finished
@@ -38,6 +36,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
+          VITE_BASE_PATH: /Photobooth/
           VITE_CLOUDINARY_CLOUD_NAME: ${{ vars.VITE_CLOUDINARY_CLOUD_NAME }}
           VITE_CLOUDINARY_UPLOAD_PRESET: ${{ vars.VITE_CLOUDINARY_UPLOAD_PRESET }}
 
