@@ -8,11 +8,13 @@ describe('getCaptureRotation', () => {
   });
 
   it('rotates a stale portrait stream for landscape capture', () => {
-    expect(getCaptureRotation(1080, 1920, 16 / 9, 90)).toBe(90);
-    expect(getCaptureRotation(1080, 1920, 16 / 9, 270)).toBe(-90);
+    expect(getCaptureRotation(1080, 1920, 16 / 9, 90)).toBe(-90);
+    expect(getCaptureRotation(1080, 1920, 16 / 9, 270)).toBe(90);
   });
 
   it('rotates a stale landscape stream for portrait capture', () => {
     expect(getCaptureRotation(1920, 1080, 3 / 4, 0)).toBe(90);
+    expect(getCaptureRotation(1920, 1080, 3 / 4, 90)).toBe(-90);
+    expect(getCaptureRotation(1920, 1080, 3 / 4, 270)).toBe(90);
   });
 });

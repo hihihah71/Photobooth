@@ -428,6 +428,42 @@
   gap: 12px;
   align-items: stretch;
 }
+.camera-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.camera-orientation-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  align-self: center;
+  width: min(100%, 360px);
+  padding: 4px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+.camera-orientation-option {
+  padding: 8px 14px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+.camera-orientation-option.active {
+  color: var(--bg);
+  background: var(--text);
+}
+.camera-orientation-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
 .camera-stage {
   position: relative;
   background: #000;

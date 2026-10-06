@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useCamera } from '../hooks/useCamera';
 import { captureFromVideo } from '../utils/captureFromVideo';
 import { Countdown } from './Countdown';
@@ -11,28 +11,21 @@ type Props = {
   targetAspect?: number;
 };
 
+type CaptureOrientation = 'portrait' | 'landscape';
+
 export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Props) {
   const { state, videoRef, switchFacing } = useCamera(true);
   const [counting, setCounting] = useState(false);
   const [flashing, setFlashing] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(() =>
-    typeof window !== 'undefined' && window.matchMedia('(orientation: landscape)').matches,
-  );
+  const [captureOrientation, setCaptureOrientation] =
+    useState<CaptureOrientation>('portrait');
 
   const mirror = state.facing === 'user';
   const stageAspect = targetAspect && targetAspect > 0
     ? targetAspect
-    : isLandscape
-      ? 16 / 9
+    : captureOrientation === 'landscape'
+      ? 4 / 3
       : 3 / 4;
-
-  useEffect(() => {
-    const query = window.matchMedia('(orientation: landscape)');
-    const updateOrientation = () => setIsLandscape(query.matches);
-    updateOrientation();
-    query.addEventListener('change', updateOrientation);
-    return () => query.removeEventListener('change', updateOrientation);
-  }, []);
 
   const handleShutter = useCallback(() => {
     if (state.status !== 'ready' || counting) return;
@@ -72,23 +65,49 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
 
   return (
     <div className="camera-view">
-      <div className="camera-stage" style={{ aspectRatio: stageAspect }}>
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="camera-video"
-          style={{ transform: mirror ? 'scaleX(-1)' : undefined }}
-        />
-        {flashing && (
-          <FlashOverlay duration={250} onDone={() => setFlashing(false)} />
-        )}
-        {state.status === 'requesting' && (
-          <div className="camera-message overlay">
-            <p>Starting camera…</p>
+      <div className="camera-main">
+        {!targetAspect && (
+          <div className="camera-orientation-picker" role="radiogroup" aria-label="Photo orientation">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={captureOrientation === 'portrait'}
+              className={`camera-orientation-option ${captureOrientation === 'portrait' ? 'active' : ''}`}
+              onClick={() => setCaptureOrientation('portrait')}
+              disabled={counting}
+            >
+              ▯ Portrait
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={captureOrientation === 'landscape'}
+              className={`camera-orientation-option ${captureOrientation === 'landscape' ? 'active' : ''}`}
+              onClick={() => setCaptureOrientation('landscape')}
+              disabled={counting}
+            >
+              ▭ Landscape
+            </button>
           </div>
         )}
+        <div className="camera-stage" style={{ aspectRatio: stageAspect }}>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="camera-video"
+            style={{ transform: mirror ? 'scaleX(-1)' : undefined }}
+          />
+          {flashing && (
+            <FlashOverlay duration={250} onDone={() => setFlashing(false)} />
+          )}
+          {state.status === 'requesting' && (
+            <div className="camera-message overlay">
+              <p>Starting camera…</p>
+            </div>
+          )}
+        </div>
       </div>
       {counting && (
         <Countdown
@@ -98,7 +117,7 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
         />
       )}
       <p className="camera-rotate-hint" aria-hidden="true">
-        ↻ Rotate your phone sideways for landscape capture
+        Choose Portrait or Landscape before taking the photo
       </p>
       <div className="camera-controls">
         <button

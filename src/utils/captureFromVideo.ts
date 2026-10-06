@@ -98,7 +98,9 @@ export function getCaptureRotation(
   if (sourceLandscape === targetLandscape) return 0;
 
   const normalizedAngle = ((orientationAngle % 360) + 360) % 360;
-  return normalizedAngle === 270 || normalizedAngle === 180 ? -90 : 90;
+  if (normalizedAngle === 90) return -90;
+  if (normalizedAngle === 270) return 90;
+  return normalizedAngle === 180 ? -90 : 90;
 }
 
 function getScreenOrientationAngle(): number {

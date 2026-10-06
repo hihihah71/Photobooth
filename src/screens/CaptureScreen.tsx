@@ -159,6 +159,17 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
     setPending(null);
   }, []);
 
+  const rotatePending = useCallback(async () => {
+    if (!pending) return;
+    try {
+      const rotated = await rotateImageClockwise(pending.image);
+      await setPendingFromBlob(rotated);
+    } catch (err) {
+      console.error('Failed to rotate photo', err);
+      setError(err instanceof Error ? err.message : 'Failed to rotate photo.');
+    }
+  }, [pending, setPendingFromBlob]);
+
   const toggleCandidate = useCallback(
     (id: string) => {
       setError(null);
@@ -238,6 +249,9 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
           <img src={pending.sourceUrl} alt="New photo preview" className="capture-preview-image" />
           <div className="capture-actions">
             <button type="button" className="btn btn-ghost" onClick={retake}>Retake</button>
+            <button type="button" className="btn btn-ghost" onClick={() => void rotatePending()}>
+              Rotate 90°
+            </button>
             <button type="button" className="btn btn-primary" onClick={confirmPending}>Keep photo</button>
           </div>
         </div>
@@ -361,4 +375,30 @@ function createCandidate(slotImage: SlotImage): PhotoCandidate {
     ? crypto.randomUUID()
     : `candidate-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   return { id, slotImage, owned: true };
+}
+
+function rotateImageClockwise(image: HTMLImageElement): Promise<Blob> {
+  const canvas = document.createElement('canvas');
+  canvas.width = image.naturalHeight;
+  canvas.height = image.naturalWidth;
+  const context = canvas.getContext('2d');
+  if (!context) return Promise.reject(new Error('Canvas 2D context unavailable.'));
+
+  context.translate(canvas.width / 2, canvas.height / 2);
+  context.rotate(Math.PI / 2);
+  context.drawImage(
+    image,
+    -image.naturalWidth / 2,
+    -image.naturalHeight / 2,
+    image.naturalWidth,
+    image.naturalHeight,
+  );
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => blob ? resolve(blob) : reject(new Error('Failed to encode rotated photo.')),
+      'image/jpeg',
+      0.92,
+    );
+  });
 }
