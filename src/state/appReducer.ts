@@ -40,11 +40,12 @@ export function appReducer(state: AppState, action: Action): AppState {
       for (let i = 0; i < state.slotImages.length; i++) {
         next[i] = state.slotImages[i];
       }
+      const firstEmpty = next.slice(0, action.slotCount).findIndex((slotImage) => slotImage === null);
       return {
         ...state,
         frameId: action.frameId,
         slotImages: next,
-        activeSlot: 0,
+        activeSlot: firstEmpty >= 0 ? firstEmpty : 0,
       };
     }
 

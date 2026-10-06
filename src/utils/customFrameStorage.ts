@@ -1,8 +1,31 @@
 import type { CustomFrame } from '../types';
 import { FRAMES_INDEX, STORE_FRAMES, withStore } from './db';
 
-export function saveCustomFrame(frame: CustomFrame): Promise<void> {
-  return withStore(STORE_FRAMES, 'readwrite', (s) => s.put(frame)).then(() => undefined);
+export const MAX_CUSTOM_FRAMES = 20;
+export const MAX_CUSTOM_FRAME_STORAGE_BYTES = 100 * 1024 * 1024;
+
+export async function saveCustomFrame(frame: CustomFrame): Promise<void> {
+  const existing = await listCustomFrames();
+  const previous = existing.find((item) => item.id === frame.id);
+  const nextCount = existing.length + (previous ? 0 : 1);
+  const currentBytes = existing.reduce(
+    (total, item) => total + item.background.size + item.thumbnail.size,
+    0,
+  );
+  const frameBytes = frame.background.size + frame.thumbnail.size;
+  const nextBytes = currentBytes
+    - (previous?.background.size ?? 0)
+    - (previous?.thumbnail.size ?? 0)
+    + frameBytes;
+
+  if (nextCount > MAX_CUSTOM_FRAMES) {
+    throw new Error(`Custom frame limit reached (${MAX_CUSTOM_FRAMES} frames). Delete one first.`);
+  }
+  if (nextBytes > MAX_CUSTOM_FRAME_STORAGE_BYTES) {
+    throw new Error('Custom frame storage limit reached (100 MB). Delete an older frame first.');
+  }
+
+  await withStore(STORE_FRAMES, 'readwrite', (s) => s.put(frame));
 }
 
 export function listCustomFrames(): Promise<CustomFrame[]> {

@@ -8,8 +8,10 @@ Built with Vite 7 + React 19 + TypeScript.
 
 ```bash
 npm install
-npm run dev -- --host        # opens on the local network for phone testing
+npm run dev                   # camera works on localhost
+npm run dev -- --host        # LAN UI/upload testing; phone camera requires HTTPS
 npm run lint
+npm run test
 npm run build && npm run preview
 ```
 
@@ -47,6 +49,7 @@ Privacy is a first-class feature here:
 
 - **No network requests** after the initial bundle. No analytics, no telemetry, no external scripts.
 - **All photos and gallery data live in the browser** on the user's device, in IndexedDB (`photobooth.photos`). Clearing browser data for the site wipes them.
+- Local storage is capped at 100 photos / 250 MB and 20 custom frames / 100 MB to keep long-running sessions responsive.
 - **Camera stream is explicitly stopped** the moment the user leaves the capture screen : the device indicator light turns off immediately.
 - A privacy banner on the Home screen and a header note on the Gallery screen make this explicit to the user.
 - Delete confirmations spell out that deletions are permanent.

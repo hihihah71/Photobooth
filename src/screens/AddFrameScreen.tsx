@@ -6,9 +6,12 @@ import {
 } from 'react';
 import type { Action } from '../state/appReducer';
 import type { CustomFrame, SlotConfig } from '../types';
-import { fileToImage } from '../utils/fileToImage';
 import { makeThumbnail } from '../utils/thumbnail';
 import { useObjectUrl } from '../hooks/useObjectUrl';
+import {
+  loadValidatedImage,
+  MAX_CUSTOM_FRAME_PIXELS,
+} from '../utils/imageValidation';
 
 type Props = {
   dispatch: React.Dispatch<Action>;
@@ -27,6 +30,7 @@ type DragState = {
 
 const HANDLES_CORNER: Handle[] = ['nw', 'ne', 'sw', 'se'];
 const HANDLES_EDGE: Handle[] = ['n', 's', 'e', 'w'];
+const MAX_CUSTOM_FRAME_SLOTS = 12;
 
 export function AddFrameScreen({ dispatch, onSave }: Props) {
   const [stage, setStage] = useState<'upload' | 'edit'>('upload');
@@ -43,7 +47,7 @@ export function AddFrameScreen({ dispatch, onSave }: Props) {
     if (!file) return;
     setError(null);
     try {
-      const img = await fileToImage(file);
+      const img = await loadValidatedImage(file, { maxPixels: MAX_CUSTOM_FRAME_PIXELS });
       setImageBlob(file);
       setImageDims({ width: img.naturalWidth, height: img.naturalHeight });
       // Default: one slot covering 80% of the image, centered.
@@ -73,6 +77,28 @@ export function AddFrameScreen({ dispatch, onSave }: Props) {
     }
     if (slots.length === 0) {
       setError('Add at least one photo slot.');
+      return;
+    }
+    if (slots.length > MAX_CUSTOM_FRAME_SLOTS) {
+      setError(`A custom frame can have at most ${MAX_CUSTOM_FRAME_SLOTS} photo slots.`);
+      return;
+    }
+    const invalidSlot = slots.findIndex(
+      (slot) =>
+        !Number.isFinite(slot.x)
+        || !Number.isFinite(slot.y)
+        || !Number.isFinite(slot.width)
+        || !Number.isFinite(slot.height)
+        || (slot.rotation !== undefined && !Number.isFinite(slot.rotation))
+        || slot.x < 0
+        || slot.y < 0
+        || slot.width < 20
+        || slot.height < 20
+        || slot.x + slot.width > imageDims.width
+        || slot.y + slot.height > imageDims.height,
+    );
+    if (invalidSlot >= 0) {
+      setError(`Slot ${invalidSlot + 1} must stay within the frame and be at least 20px wide and high.`);
       return;
     }
     setSaving(true);
@@ -221,6 +247,7 @@ function EditorStage({
   );
 
   const addSlot = useCallback(() => {
+    if (slots.length >= MAX_CUSTOM_FRAME_SLOTS) return;
     // Use the currently-selected slot as a template (or a sensible default
     // if there isn't one yet). New slot is offset diagonally so it's visible
     // as a separate rectangle next to the original.
@@ -291,6 +318,10 @@ function EditorStage({
       }
       if (width < minSize) width = minSize;
       if (height < minSize) height = minSize;
+      x = Math.max(0, Math.min(x, imageDims.width - minSize));
+      y = Math.max(0, Math.min(y, imageDims.height - minSize));
+      width = Math.min(width, imageDims.width - x);
+      height = Math.min(height, imageDims.height - y);
       updateSlot(selected, {
         x: Math.round(x),
         y: Math.round(y),
@@ -298,7 +329,7 @@ function EditorStage({
         height: Math.round(height),
       });
     },
-    [selected, updateSlot],
+    [imageDims, selected, updateSlot],
   );
 
   const endDrag = useCallback((e: React.PointerEvent<HTMLElement>) => {
@@ -426,6 +457,7 @@ function EditorStage({
             type="button"
             className="editor-slot-tab editor-slot-add"
             onClick={addSlot}
+            disabled={slots.length >= MAX_CUSTOM_FRAME_SLOTS}
             aria-label="Add slot"
           >
             + Add

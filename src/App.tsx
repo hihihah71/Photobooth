@@ -2,6 +2,7 @@ import { useMemo, useReducer } from 'react';
 import { appReducer, initialState } from './state/appReducer';
 import { frames as builtInFrames } from './config/frames';
 import { useCustomFrames } from './hooks/useCustomFrames';
+import { useSlotImageUrlCleanup } from './hooks/useSlotImageUrlCleanup';
 import { HomeScreen } from './screens/HomeScreen';
 import { CaptureScreen } from './screens/CaptureScreen';
 import { AdjustScreen } from './screens/AdjustScreen';
@@ -13,6 +14,7 @@ import { AddFrameScreen } from './screens/AddFrameScreen';
 function App() {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const { customFrames, save: saveCustomFrame, remove: removeCustomFrame } = useCustomFrames();
+  useSlotImageUrlCleanup(state.slotImages);
 
   // Custom frames first (newest at top from IndexedDB) followed by built-ins.
   const allFrames = useMemo(

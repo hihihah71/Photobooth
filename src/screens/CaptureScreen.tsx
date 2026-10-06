@@ -3,8 +3,8 @@ import type { AppState, FrameConfig, SlotImage } from '../types';
 import type { Action } from '../state/appReducer';
 import { CameraView } from '../components/CameraView';
 import { StepIndicator } from '../components/StepIndicator';
-import { fileToImage } from '../utils/fileToImage';
 import { identityTransform } from '../utils/coverFit';
+import { loadValidatedImage } from '../utils/imageValidation';
 
 type Props = {
   state: AppState;
@@ -18,12 +18,13 @@ type PendingPhoto = { blob: Blob; image: HTMLImageElement; sourceUrl: string } |
 export function CaptureScreen({ state, frame, dispatch }: Props) {
   const [mode, setMode] = useState<Mode>('camera');
   const [pending, setPending] = useState<PendingPhoto>(null);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingUrlRef = useRef<string | null>(null);
 
   const totalSlots = frame.slots.length;
   const activeSlot = state.activeSlot;
-  const filledCount = state.slotImages.filter(Boolean).length;
+  const filledCount = state.slotImages.slice(0, totalSlots).filter(Boolean).length;
 
   useEffect(() => {
     return () => {
@@ -35,14 +36,16 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
   }, []);
 
   const setPendingFromBlob = useCallback(async (blob: Blob) => {
+    setError(null);
     const url = URL.createObjectURL(blob);
     try {
-      const img = await fileToImage(url);
+      const img = await loadValidatedImage(blob);
       if (pendingUrlRef.current) URL.revokeObjectURL(pendingUrlRef.current);
       pendingUrlRef.current = url;
       setPending({ blob, image: img, sourceUrl: url });
     } catch (err) {
       URL.revokeObjectURL(url);
+      setError(err instanceof Error ? err.message : 'Failed to load image');
       console.error('Failed to load image', err);
     }
   }, []);
@@ -58,39 +61,62 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
       const list = Array.from(files);
+      setError(null);
 
-      if (list.length === 1) {
-        await setPendingFromBlob(list[0]);
-        return;
-      }
-
-      // Bulk upload distributes across remaining unfilled slots.
-      let cursor = activeSlot;
-      for (const file of list) {
-        if (cursor >= totalSlots) break;
-        try {
-          const img = await fileToImage(file);
-          const url = URL.createObjectURL(file);
-          const slotImage: SlotImage = {
-            image: img,
-            sourceUrl: url,
-            transform: identityTransform,
-          };
-          dispatch({ type: 'setSlotImage', index: cursor, image: slotImage });
-          cursor += 1;
-        } catch (err) {
-          console.error('Failed to load uploaded image', err);
+      try {
+        if (list.length === 1) {
+          await setPendingFromBlob(list[0]);
+          return;
         }
-      }
-      const nextSlot = Math.min(cursor, totalSlots - 1);
-      dispatch({ type: 'setActiveSlot', index: nextSlot });
 
-      const allFilled = cursor >= totalSlots;
-      if (allFilled) {
-        dispatch({ type: 'goto', step: 'adjust' });
+        const projected = Array.from(
+          { length: totalSlots },
+          (_, index) => state.slotImages[index] ?? null,
+        );
+        const emptyIndices: number[] = [];
+        for (let offset = 0; offset < totalSlots; offset += 1) {
+          const index = (activeSlot + offset) % totalSlots;
+          if (!projected[index]) emptyIndices.push(index);
+        }
+        // If the user returned from Adjust with a full frame, treat a bulk
+        // selection as a replacement of the active slot instead of silently
+        // overwriting every following slot.
+        const targetIndices = emptyIndices.length > 0
+          ? emptyIndices
+          : [Math.min(activeSlot, totalSlots - 1)];
+        let changed = false;
+        let lastTarget = targetIndices[0];
+
+        for (let i = 0; i < list.length && i < targetIndices.length; i += 1) {
+          const file = list[i];
+          const target = targetIndices[i];
+          try {
+            const img = await loadValidatedImage(file);
+            const url = URL.createObjectURL(file);
+            const slotImage: SlotImage = {
+              image: img,
+              sourceUrl: url,
+              transform: identityTransform,
+            };
+            projected[target] = slotImage;
+            dispatch({ type: 'setSlotImage', index: target, image: slotImage });
+            changed = true;
+            lastTarget = target;
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to load an uploaded image');
+            console.error('Failed to load uploaded image', err);
+          }
+        }
+
+        if (!changed) return;
+        const nextEmpty = projected.findIndex((slotImage) => slotImage === null);
+        dispatch({ type: 'setActiveSlot', index: nextEmpty >= 0 ? nextEmpty : lastTarget });
+        if (nextEmpty === -1) dispatch({ type: 'goto', step: 'adjust' });
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
     },
-    [activeSlot, totalSlots, dispatch, setPendingFromBlob],
+    [activeSlot, totalSlots, dispatch, setPendingFromBlob, state.slotImages],
   );
 
   const confirmPending = useCallback(() => {
@@ -108,13 +134,13 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
     // (the reducer hasn't applied yet, so state.slotImages is still stale).
     const projected = state.slotImages.slice();
     projected[activeSlot] = slotImage;
-    const nextEmpty = projected.findIndex((s) => s === null);
+    const nextEmpty = projected.slice(0, totalSlots).findIndex((s) => s === null);
     if (nextEmpty === -1) {
       dispatch({ type: 'goto', step: 'adjust' });
     } else {
       dispatch({ type: 'setActiveSlot', index: nextEmpty });
     }
-  }, [pending, activeSlot, dispatch, state.slotImages]);
+  }, [pending, activeSlot, dispatch, state.slotImages, totalSlots]);
 
   const retake = useCallback(() => {
     if (pendingUrlRef.current) {
@@ -210,6 +236,7 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
           )}
         </>
       )}
+      {error && <p className="warning">{error}</p>}
     </div>
   );
 }

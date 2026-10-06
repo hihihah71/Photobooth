@@ -2,8 +2,8 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { AppState, FrameConfig, SlotImage } from '../types';
 import type { Action } from '../state/appReducer';
 import { SlotPreview } from '../components/SlotPreview';
-import { fileToImage } from '../utils/fileToImage';
 import { identityTransform } from '../utils/coverFit';
+import { loadValidatedImage } from '../utils/imageValidation';
 
 type Props = {
   state: AppState;
@@ -20,6 +20,7 @@ export function AdjustScreen({ state, frame, dispatch, allFrames }: Props) {
   const [menuFor, setMenuFor] = useState<number | null>(null);
   const [swapSource, setSwapSource] = useState<number | null>(null);
   const [confirmDeleteFor, setConfirmDeleteFor] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingRef = useRef<Pending | null>(null);
 
@@ -48,8 +49,9 @@ export function AdjustScreen({ state, frame, dispatch, allFrames }: Props) {
       pendingRef.current = null;
       const file = files?.[0];
       if (!file || !pending) return;
+      setUploadError(null);
       try {
-        const img = await fileToImage(file);
+        const img = await loadValidatedImage(file);
         const sourceUrl = URL.createObjectURL(file);
         const slotImage: SlotImage = {
           image: img,
@@ -58,9 +60,11 @@ export function AdjustScreen({ state, frame, dispatch, allFrames }: Props) {
         };
         dispatch({ type: 'setSlotImage', index: pending.slot, image: slotImage });
       } catch (err) {
+        setUploadError(err instanceof Error ? err.message : 'Failed to load image');
         console.error('Failed to load image', err);
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
-      if (fileInputRef.current) fileInputRef.current.value = '';
     },
     [dispatch],
   );
@@ -114,6 +118,8 @@ export function AdjustScreen({ state, frame, dispatch, allFrames }: Props) {
     setConfirmDeleteFor(null);
   }, [confirmDeleteFor, dispatch]);
 
+  const allSlotsFilled = frame.slots.every((_, index) => Boolean(state.slotImages[index]));
+
   return (
     <div className="screen adjust-screen">
       <header className="screen-header">
@@ -129,6 +135,8 @@ export function AdjustScreen({ state, frame, dispatch, allFrames }: Props) {
           type="button"
           className="btn btn-primary"
           onClick={() => dispatch({ type: 'goto', step: 'preview' })}
+          disabled={!allSlotsFilled}
+          title={allSlotsFilled ? undefined : 'Fill every photo slot before previewing'}
         >
           Done
         </button>
@@ -139,6 +147,7 @@ export function AdjustScreen({ state, frame, dispatch, allFrames }: Props) {
           ? 'Tap another slot to swap. Tap the highlighted one to cancel.'
           : 'Drag a photo to reposition. Pinch or scroll to zoom. Tap for options.'}
       </p>
+      {uploadError && <p className="warning">{uploadError}</p>}
 
       <input
         ref={fileInputRef}

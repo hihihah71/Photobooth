@@ -12,7 +12,7 @@ export function openDb(): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') {
     return Promise.reject(new Error('IndexedDB is not available in this browser'));
   }
-  dbPromise = new Promise((resolve, reject) => {
+  const opening = new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
@@ -25,8 +25,19 @@ export function openDb(): Promise<IDBDatabase> {
         frames.createIndex(FRAMES_INDEX, 'createdAt');
       }
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
     req.onerror = () => reject(req.error ?? new Error('IndexedDB open failed'));
+  });
+  dbPromise = opening.catch((error: unknown) => {
+    dbPromise = null;
+    throw error;
   });
   return dbPromise;
 }
@@ -41,14 +52,64 @@ export function withStore<T>(
       new Promise<T>((resolve, reject) => {
         const tx = db.transaction(store, mode);
         const s = tx.objectStore(store);
-        const result = fn(s);
-        if (result instanceof Promise) {
-          result.then(resolve, reject);
-        } else {
-          result.onsuccess = () => resolve(result.result);
-          result.onerror = () => reject(result.error);
+        let resultReady = false;
+        let transactionComplete = false;
+        let value: T;
+        let failed = false;
+
+        const fail = (error: unknown) => {
+          if (failed) return;
+          failed = true;
+          reject(error instanceof Error ? error : new Error('IndexedDB transaction failed'));
+        };
+        const finish = () => {
+          if (!failed && resultReady && transactionComplete) resolve(value);
+        };
+
+        tx.oncomplete = () => {
+          transactionComplete = true;
+          finish();
+        };
+        tx.onerror = () => fail(tx.error ?? new Error('IndexedDB transaction failed'));
+        tx.onabort = () => fail(tx.error ?? new Error('IndexedDB transaction aborted'));
+
+        let result: IDBRequest<T> | Promise<T>;
+        try {
+          result = fn(s);
+        } catch (error) {
+          try {
+            tx.abort();
+          } catch {
+            // The transaction may already be inactive.
+          }
+          fail(error);
+          return;
         }
-        tx.onerror = () => reject(tx.error);
+
+        if (result instanceof Promise) {
+          result.then(
+            (next) => {
+              value = next;
+              resultReady = true;
+              finish();
+            },
+            (error: unknown) => {
+              try {
+                tx.abort();
+              } catch {
+                // The transaction may already be inactive.
+              }
+              fail(error);
+            },
+          );
+        } else {
+          result.onsuccess = () => {
+            value = result.result;
+            resultReady = true;
+            finish();
+          };
+          result.onerror = () => fail(result.error ?? new Error('IndexedDB request failed'));
+        }
       }),
   );
 }

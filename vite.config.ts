@@ -6,9 +6,9 @@ import pkg from './package.json' with { type: 'json' }
 // Production builds are served from https://zyttal.github.io/Photobooth/,
 // so assets need the /Photobooth/ prefix. Dev keeps the root '/' so
 // `npm run dev` still works at http://localhost:5173/.
-export default defineConfig(({ command }) => ({
+export default defineConfig(({ command, isPreview }) => ({
   plugins: [react()],
-  base: command === 'build' ? '/Photobooth/' : '/',
+  base: command === 'build' || isPreview ? '/Photobooth/' : '/',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },

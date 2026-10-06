@@ -19,6 +19,7 @@ type SaveState = 'pending' | 'saved' | 'failed';
 export function PreviewScreen({ state, frame, dispatch }: Props) {
   const canvasRef = useRef<CompositeCanvasHandle>(null);
   const [saveState, setSaveState] = useState<SaveState>('pending');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const { canShare, share } = useShare();
   const savedOnceRef = useRef(false);
@@ -52,6 +53,7 @@ export function PreviewScreen({ state, frame, dispatch }: Props) {
         setSaveState('saved');
       } catch (err) {
         console.error('Failed to save photo', err);
+        setSaveError(err instanceof Error ? err.message : 'Unknown storage error');
         setSaveState('failed');
       }
     }, 300);
@@ -107,7 +109,9 @@ export function PreviewScreen({ state, frame, dispatch }: Props) {
           <span className="success">✓ Saved to gallery</span>
         )}
         {saveState === 'failed' && (
-          <span className="warning">Couldn't save to gallery. Download still works.</span>
+          <span className="warning">
+            Couldn't save to gallery{saveError ? `: ${saveError}` : ''}. Download still works.
+          </span>
         )}
       </div>
 
