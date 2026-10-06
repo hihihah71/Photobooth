@@ -11,21 +11,19 @@ type Props = {
   targetAspect?: number;
 };
 
-type CaptureOrientation = 'portrait' | 'landscape';
-
 export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Props) {
   const { state, videoRef, switchFacing } = useCamera(true);
   const [counting, setCounting] = useState(false);
   const [flashing, setFlashing] = useState(false);
-  const [captureOrientation, setCaptureOrientation] =
-    useState<CaptureOrientation>('portrait');
+  const [viewRotation, setViewRotation] = useState<0 | 90 | 180 | 270>(0);
 
   const mirror = state.facing === 'user';
   const stageAspect = targetAspect && targetAspect > 0
     ? targetAspect
-    : captureOrientation === 'landscape'
-      ? 4 / 3
-      : 3 / 4;
+    : 4 / 3;
+  const viewIsQuarterTurn = viewRotation === 90 || viewRotation === 270;
+  const viewAspect = viewIsQuarterTurn ? 1 / stageAspect : stageAspect;
+  const rotatedVideoStyle = getRotatedVideoStyle(stageAspect, viewRotation, mirror);
 
   const handleShutter = useCallback(() => {
     if (state.status !== 'ready' || counting) return;
@@ -66,38 +64,14 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
   return (
     <div className="camera-view">
       <div className="camera-main">
-        {!targetAspect && (
-          <div className="camera-orientation-picker" role="radiogroup" aria-label="Photo orientation">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={captureOrientation === 'portrait'}
-              className={`camera-orientation-option ${captureOrientation === 'portrait' ? 'active' : ''}`}
-              onClick={() => setCaptureOrientation('portrait')}
-              disabled={counting}
-            >
-              ▯ Portrait
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={captureOrientation === 'landscape'}
-              className={`camera-orientation-option ${captureOrientation === 'landscape' ? 'active' : ''}`}
-              onClick={() => setCaptureOrientation('landscape')}
-              disabled={counting}
-            >
-              ▭ Landscape
-            </button>
-          </div>
-        )}
-        <div className="camera-stage" style={{ aspectRatio: stageAspect }}>
+        <div className="camera-stage" style={{ aspectRatio: viewAspect }}>
           <video
             ref={videoRef}
             autoPlay
             playsInline
             muted
             className="camera-video"
-            style={{ transform: mirror ? 'scaleX(-1)' : undefined }}
+            style={rotatedVideoStyle}
           />
           {flashing && (
             <FlashOverlay duration={250} onDone={() => setFlashing(false)} />
@@ -116,9 +90,6 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
           className="countdown-fullscreen"
         />
       )}
-      <p className="camera-rotate-hint" aria-hidden="true">
-        Choose Portrait or Landscape before taking the photo
-      </p>
       <div className="camera-controls">
         <button
           type="button"
@@ -139,8 +110,46 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
         >
           <span className="shutter-button-inner" />
         </button>
-        <span className="shutter-spacer" aria-hidden="true" />
+        <button
+          type="button"
+          className="btn btn-ghost camera-view-rotate-button"
+          onClick={() => setViewRotation(nextViewRotation(viewRotation))}
+          disabled={counting}
+          aria-label="Rotate camera view 90 degrees"
+        >
+          <span aria-hidden="true">↻</span>
+          <span>Rotate view</span>
+        </button>
       </div>
     </div>
   );
+}
+
+function nextViewRotation(current: 0 | 90 | 180 | 270): 0 | 90 | 180 | 270 {
+  if (current === 0) return 90;
+  if (current === 90) return 180;
+  if (current === 180) return 270;
+  return 0;
+}
+
+function getRotatedVideoStyle(
+  aspect: number,
+  rotation: 0 | 90 | 180 | 270,
+  mirror: boolean,
+): React.CSSProperties {
+  const quarterTurn = rotation === 90 || rotation === 270;
+  const mirrorTransform = !mirror
+    ? ''
+    : quarterTurn
+      ? ' scaleY(-1)'
+      : ' scaleX(-1)';
+
+  return {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: quarterTurn ? `${aspect * 100}%` : '100%',
+    height: quarterTurn ? `${(100 / aspect)}%` : '100%',
+    transform: `translate(-50%, -50%) rotate(${rotation}deg)${mirrorTransform}`,
+  };
 }

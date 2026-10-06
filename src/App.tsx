@@ -46,7 +46,6 @@ function App() {
           state={state}
           frame={frame}
           dispatch={dispatch}
-          allFrames={allFrames}
         />
       )}
       {state.step === 'preview' && frame && (

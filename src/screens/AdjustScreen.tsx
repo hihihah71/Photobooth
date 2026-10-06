@@ -10,12 +10,11 @@ type Props = {
   state: AppState;
   frame: FrameConfig;
   dispatch: React.Dispatch<Action>;
-  allFrames: FrameConfig[];
 };
 
 type Pending = { kind: 'replace'; slot: number } | { kind: 'add'; slot: number };
 
-export function AdjustScreen({ state, frame, dispatch, allFrames }: Props) {
+export function AdjustScreen({ state, frame, dispatch }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [scale, setScale] = useState(1);
   const [menuFor, setMenuFor] = useState<number | null>(null);
@@ -264,7 +263,7 @@ export function AdjustScreen({ state, frame, dispatch, allFrames }: Props) {
         </div>
       </div>
 
-      {swapSource !== null ? (
+      {swapSource !== null && (
         <div className="swap-mode-bar" role="status">
           <span className="swap-mode-text">
             <span className="swap-mode-pill">⇄ Swap mode</span>
@@ -277,33 +276,6 @@ export function AdjustScreen({ state, frame, dispatch, allFrames }: Props) {
           >
             Cancel
           </button>
-        </div>
-      ) : (
-        <div className="frame-swap" aria-label="Try another frame">
-          <span className="frame-swap-label">Try another frame</span>
-          <ul className="frame-swap-strip">
-            {allFrames.map((f) => (
-              <li key={f.id}>
-                <button
-                  type="button"
-                  className={`frame-swap-tile ${f.id === frame.id ? 'active' : ''}`}
-                  onClick={() => {
-                    setMenuFor(null);
-                    setSwapSource(null);
-                    dispatch({
-                      type: 'swapFrame',
-                      frameId: f.id,
-                      slotCount: f.slots.length,
-                    });
-                  }}
-                  aria-label={f.name}
-                  title={f.name}
-                >
-                  <img src={f.thumbnail} alt="" loading="lazy" />
-                </button>
-              </li>
-            ))}
-          </ul>
         </div>
       )}
 

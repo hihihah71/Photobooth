@@ -431,38 +431,7 @@
 .camera-main {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   min-width: 0;
-}
-.camera-orientation-picker {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  align-self: center;
-  width: min(100%, 360px);
-  padding: 4px;
-  background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: var(--radius-pill);
-}
-.camera-orientation-option {
-  padding: 8px 14px;
-  color: var(--text-muted);
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 800;
-}
-.camera-orientation-option.active {
-  color: var(--bg);
-  background: var(--text);
-}
-.camera-orientation-option:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
 }
 .camera-stage {
   position: relative;
@@ -512,13 +481,16 @@
   font-size: 20px;
   line-height: 1;
 }
-.camera-rotate-hint {
-  display: none;
-  margin: 0;
-  color: var(--text-muted);
-  text-align: center;
-  font-size: 12px;
-  font-weight: 700;
+.camera-view-rotate-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 112px;
+}
+.camera-view-rotate-button > span:first-child {
+  font-size: 20px;
+  line-height: 1;
 }
 .shutter-button {
   width: 80px;
@@ -1645,11 +1617,13 @@
     width: 64px;
     height: 64px;
   }
-}
-
-@media (max-width: 768px) and (orientation: portrait) {
-  .camera-rotate-hint {
-    display: block;
+  .camera-controls .btn {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+  .camera-switch-button,
+  .camera-view-rotate-button {
+    min-width: 84px;
   }
 }
 
@@ -1668,7 +1642,7 @@
   }
   .camera-controls {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto;
+    grid-template-rows: repeat(3, auto);
     align-content: center;
   }
   .camera-switch-button {
@@ -1678,7 +1652,8 @@
   .shutter-button {
     order: 1;
   }
-  .shutter-spacer {
-    display: none;
+  .camera-view-rotate-button {
+    order: 3;
+    min-width: 96px;
   }
 }

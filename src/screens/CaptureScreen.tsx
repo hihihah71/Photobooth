@@ -230,6 +230,9 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
   const atLimit = candidates.length >= MAX_CAPTURE_PHOTOS;
   const ready = candidates.length >= totalSlots && selectedIds.length === totalSlots;
   const remainingMinimum = Math.max(0, totalSlots - candidates.length);
+  const captureSlotIndex = candidates.length % totalSlots;
+  const captureSlot = frame.slots[captureSlotIndex];
+  const captureAspect = captureSlot.width / captureSlot.height;
 
   return (
     <div className="screen capture-screen">
@@ -284,7 +287,11 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
               <span className="muted">Select the best photos below, or remove one to take another.</span>
             </div>
           ) : mode === 'camera' ? (
-            <CameraView onCapture={handleCapture} countdownSeconds={3} />
+            <CameraView
+              onCapture={handleCapture}
+              countdownSeconds={3}
+              targetAspect={captureAspect}
+            />
           ) : (
             <div className="upload-area">
               <input
