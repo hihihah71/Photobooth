@@ -15,15 +15,13 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
   const { state, videoRef, switchFacing } = useCamera(true);
   const [counting, setCounting] = useState(false);
   const [flashing, setFlashing] = useState(false);
-  const [viewRotation, setViewRotation] = useState<0 | 90 | 180 | 270>(0);
+  const [frameRotated, setFrameRotated] = useState(false);
 
   const mirror = state.facing === 'user';
   const stageAspect = targetAspect && targetAspect > 0
     ? targetAspect
     : 4 / 3;
-  const viewIsQuarterTurn = viewRotation === 90 || viewRotation === 270;
-  const viewAspect = viewIsQuarterTurn ? 1 / stageAspect : stageAspect;
-  const rotatedVideoStyle = getRotatedVideoStyle(stageAspect, viewRotation, mirror);
+  const viewAspect = frameRotated ? 1 / stageAspect : stageAspect;
 
   const handleShutter = useCallback(() => {
     if (state.status !== 'ready' || counting) return;
@@ -71,7 +69,7 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
             playsInline
             muted
             className="camera-video"
-            style={rotatedVideoStyle}
+            style={{ transform: mirror ? 'scaleX(-1)' : undefined }}
           />
           {flashing && (
             <FlashOverlay duration={250} onDone={() => setFlashing(false)} />
@@ -112,44 +110,15 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
         </button>
         <button
           type="button"
-          className="btn btn-ghost camera-view-rotate-button"
-          onClick={() => setViewRotation(nextViewRotation(viewRotation))}
+          className="btn btn-ghost camera-frame-rotate-button"
+          onClick={() => setFrameRotated((current) => !current)}
           disabled={counting}
-          aria-label="Rotate camera view 90 degrees"
+          aria-label="Rotate camera frame"
         >
           <span aria-hidden="true">↻</span>
-          <span>Rotate view</span>
+          <span>Rotate frame</span>
         </button>
       </div>
     </div>
   );
-}
-
-function nextViewRotation(current: 0 | 90 | 180 | 270): 0 | 90 | 180 | 270 {
-  if (current === 0) return 90;
-  if (current === 90) return 180;
-  if (current === 180) return 270;
-  return 0;
-}
-
-function getRotatedVideoStyle(
-  aspect: number,
-  rotation: 0 | 90 | 180 | 270,
-  mirror: boolean,
-): React.CSSProperties {
-  const quarterTurn = rotation === 90 || rotation === 270;
-  const mirrorTransform = !mirror
-    ? ''
-    : quarterTurn
-      ? ' scaleY(-1)'
-      : ' scaleX(-1)';
-
-  return {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    width: quarterTurn ? `${aspect * 100}%` : '100%',
-    height: quarterTurn ? `${(100 / aspect)}%` : '100%',
-    transform: `translate(-50%, -50%) rotate(${rotation}deg)${mirrorTransform}`,
-  };
 }
