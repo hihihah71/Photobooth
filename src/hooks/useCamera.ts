@@ -42,9 +42,6 @@ export function useCamera(active: boolean): {
           stream = await navigator.mediaDevices.getUserMedia({
             video: {
               facingMode: { ideal: facing },
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-              aspectRatio: { ideal: 16 / 9 },
             },
             audio: false,
           });
