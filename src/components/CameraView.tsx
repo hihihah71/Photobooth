@@ -34,12 +34,16 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
     if (!video) return;
     setFlashing(true);
     try {
-      const blob = await captureFromVideo(video, { mirror, targetAspect: stageAspect });
+      const blob = await captureFromVideo(video, {
+        mirror,
+        targetAspect: viewAspect,
+        outputRotation: frameRotated ? 90 : 0,
+      });
       onCapture(blob);
     } catch (err) {
       console.error('Capture failed', err);
     }
-  }, [videoRef, mirror, onCapture, stageAspect]);
+  }, [videoRef, mirror, onCapture, viewAspect, frameRotated]);
 
   if (state.status === 'denied') {
     return (

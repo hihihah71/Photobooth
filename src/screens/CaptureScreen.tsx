@@ -16,6 +16,7 @@ type Mode = 'camera' | 'upload';
 type PhotoCandidate = {
   id: string;
   slotImage: SlotImage;
+  targetSlotIndex: number;
   /** True when this screen created the object URL and owns its cleanup. */
   owned: boolean;
 };
@@ -28,13 +29,21 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
   const [candidates, setCandidates] = useState<PhotoCandidate[]>(() =>
     state.slotImages.slice(0, totalSlots).flatMap((slotImage, index) =>
       slotImage
-        ? [{ id: `existing-${index}-${slotImage.sourceUrl}`, slotImage, owned: false }]
+        ? [{
+            id: `existing-${index}-${slotImage.sourceUrl}`,
+            slotImage,
+            targetSlotIndex: index,
+            owned: false,
+          }]
         : [],
     ),
   );
   const [selectedIds, setSelectedIds] = useState<string[]>(() =>
     candidates.slice(0, totalSlots).map((candidate) => candidate.id),
   );
+  const captureSlotIndex = candidates.length % totalSlots;
+  const captureSlot = frame.slots[captureSlotIndex];
+  const captureAspect = captureSlot.width / captureSlot.height;
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingUrlRef = useRef<string | null>(null);
@@ -128,11 +137,14 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
         for (const file of list) {
           try {
             const image = await loadValidatedImage(file);
-            loaded.push(createCandidate({
-              image,
-              sourceUrl: URL.createObjectURL(file),
-              transform: identityTransform,
-            }));
+            loaded.push(createCandidate(
+              {
+                image,
+                sourceUrl: URL.createObjectURL(file),
+                transform: identityTransform,
+              },
+              (candidates.length + loaded.length) % totalSlots,
+            ));
           } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load an uploaded image');
             console.error('Failed to load uploaded image', err);
@@ -143,15 +155,15 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
     },
-    [appendCandidates, candidates.length, setPendingFromBlob],
+    [appendCandidates, candidates.length, setPendingFromBlob, totalSlots],
   );
 
   const confirmPending = useCallback(() => {
     if (!pending) return;
-    appendCandidates([createCandidate(pending)]);
+    appendCandidates([createCandidate(pending, captureSlotIndex)]);
     pendingUrlRef.current = null;
     setPending(null);
-  }, [appendCandidates, pending]);
+  }, [appendCandidates, captureSlotIndex, pending]);
 
   const retake = useCallback(() => {
     if (pendingUrlRef.current) URL.revokeObjectURL(pendingUrlRef.current);
@@ -219,10 +231,6 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
   const atLimit = candidates.length >= MAX_CAPTURE_PHOTOS;
   const ready = candidates.length >= totalSlots && selectedIds.length === totalSlots;
   const remainingMinimum = Math.max(0, totalSlots - candidates.length);
-  const captureSlotIndex = candidates.length % totalSlots;
-  const captureSlot = frame.slots[captureSlotIndex];
-  const captureAspect = captureSlot.width / captureSlot.height;
-
   return (
     <div className="screen capture-screen">
       <header className="screen-header">
@@ -321,11 +329,14 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
             {candidates.map((candidate) => {
               const selectionIndex = selectedIds.indexOf(candidate.id);
               const selected = selectionIndex >= 0;
+              const previewSlotIndex = selected ? selectionIndex : candidate.targetSlotIndex;
+              const previewSlot = frame.slots[previewSlotIndex] ?? frame.slots[0];
               return (
                 <li key={candidate.id} className="candidate-card">
                   <button
                     type="button"
                     className={`candidate-tile ${selected ? 'selected' : ''}`}
+                    style={{ aspectRatio: previewSlot.width / previewSlot.height }}
                     onClick={() => toggleCandidate(candidate.id)}
                     aria-pressed={selected}
                     aria-label={selected
@@ -363,9 +374,9 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
   );
 }
 
-function createCandidate(slotImage: SlotImage): PhotoCandidate {
+function createCandidate(slotImage: SlotImage, targetSlotIndex: number): PhotoCandidate {
   const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `candidate-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-  return { id, slotImage, owned: true };
+  return { id, slotImage, targetSlotIndex, owned: true };
 }
