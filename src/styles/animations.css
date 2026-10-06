@@ -431,7 +431,39 @@
 .camera-main {
   display: flex;
   flex-direction: column;
+  gap: 8px;
   min-width: 0;
+}
+.camera-frame-direction {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-self: center;
+  width: min(100%, 360px);
+  padding: 4px;
+  gap: 4px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+.camera-frame-direction-option {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.camera-frame-direction-option.active {
+  background: var(--text);
+  color: var(--bg);
+}
+.camera-frame-direction-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .camera-stage {
   position: relative;
@@ -478,17 +510,6 @@
   min-width: 88px;
 }
 .camera-switch-button > span:first-child {
-  font-size: 20px;
-  line-height: 1;
-}
-.camera-frame-rotate-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-width: 112px;
-}
-.camera-frame-rotate-button > span:first-child {
   font-size: 20px;
   line-height: 1;
 }
@@ -1621,8 +1642,7 @@
     padding: 10px 8px;
     font-size: 12px;
   }
-  .camera-switch-button,
-  .camera-frame-rotate-button {
+  .camera-switch-button {
     min-width: 84px;
   }
 }
@@ -1637,12 +1657,29 @@
     align-items: center;
     gap: 14px;
   }
+  .camera-main {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .camera-controls {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .camera-controls-left {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+  .camera-controls-left .camera-main {
+    grid-column: 2;
+  }
+  .camera-controls-left .camera-controls {
+    grid-column: 1;
+  }
   .camera-stage {
     max-height: calc(100dvh - 112px);
   }
   .camera-controls {
     grid-template-columns: 1fr;
-    grid-template-rows: repeat(3, auto);
+    grid-template-rows: repeat(2, auto);
     align-content: center;
   }
   .camera-switch-button {
@@ -1652,8 +1689,7 @@
   .shutter-button {
     order: 1;
   }
-  .camera-frame-rotate-button {
-    order: 3;
-    min-width: 96px;
+  .shutter-spacer {
+    display: none;
   }
 }

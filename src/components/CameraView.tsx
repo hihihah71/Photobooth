@@ -15,12 +15,15 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
   const { state, videoRef, switchFacing } = useCamera(true);
   const [counting, setCounting] = useState(false);
   const [flashing, setFlashing] = useState(false);
-  const [frameRotated, setFrameRotated] = useState(false);
+  const [frameRotation, setFrameRotation] = useState<-90 | 0 | 90>(0);
 
   const mirror = state.facing === 'user';
   const stageAspect = targetAspect && targetAspect > 0
     ? targetAspect
     : 4 / 3;
+  const canRotateFrame = Math.abs(stageAspect - 1) > 0.01;
+  const effectiveFrameRotation = canRotateFrame ? frameRotation : 0;
+  const frameRotated = effectiveFrameRotation !== 0;
   const viewAspect = frameRotated ? 1 / stageAspect : stageAspect;
 
   const handleShutter = useCallback(() => {
@@ -37,13 +40,13 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
       const blob = await captureFromVideo(video, {
         mirror,
         targetAspect: viewAspect,
-        outputRotation: frameRotated ? 90 : 0,
+        outputRotation: effectiveFrameRotation === 90 ? -90 : effectiveFrameRotation === -90 ? 90 : 0,
       });
       onCapture(blob);
     } catch (err) {
       console.error('Capture failed', err);
     }
-  }, [videoRef, mirror, onCapture, viewAspect, frameRotated]);
+  }, [videoRef, mirror, onCapture, viewAspect, effectiveFrameRotation]);
 
   if (state.status === 'denied') {
     return (
@@ -64,8 +67,32 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
   }
 
   return (
-    <div className="camera-view">
+    <div className={`camera-view ${effectiveFrameRotation === -90 ? 'camera-controls-left' : 'camera-controls-right'}`}>
       <div className="camera-main">
+        {canRotateFrame && (
+          <div className="camera-frame-direction" role="radiogroup" aria-label="Rotate frame for hand position">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={frameRotation === -90}
+              className={`camera-frame-direction-option ${frameRotation === -90 ? 'active' : ''}`}
+              onClick={() => setFrameRotation((current) => current === -90 ? 0 : -90)}
+              disabled={counting}
+            >
+              &#8634; Left hand
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={frameRotation === 90}
+              className={`camera-frame-direction-option ${frameRotation === 90 ? 'active' : ''}`}
+              onClick={() => setFrameRotation((current) => current === 90 ? 0 : 90)}
+              disabled={counting}
+            >
+              Right hand &#8635;
+            </button>
+          </div>
+        )}
         <div className="camera-stage" style={{ aspectRatio: viewAspect }}>
           <video
             ref={videoRef}
@@ -112,16 +139,7 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
         >
           <span className="shutter-button-inner" />
         </button>
-        <button
-          type="button"
-          className="btn btn-ghost camera-frame-rotate-button"
-          onClick={() => setFrameRotated((current) => !current)}
-          disabled={counting}
-          aria-label="Rotate camera frame"
-        >
-          <span aria-hidden="true">↻</span>
-          <span>Rotate frame</span>
-        </button>
+        <span className="shutter-spacer" aria-hidden="true" />
       </div>
     </div>
   );
