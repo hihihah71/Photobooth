@@ -18,7 +18,7 @@ npm run build && npm run preview
 ## QR sharing with Cloudinary
 
 The Share button uploads the finished photo using a Cloudinary unsigned upload preset, then displays a download link and QR code for phones.
-Share uploads larger than 3 MB are automatically converted to a high-quality JPEG and, only if necessary, proportionally resized to stay around 3 MB for faster mobile downloads. The original local Gallery/Download image is not changed.
+Share uploads larger than 3 MB are automatically converted to a high-quality JPEG and, only if necessary, proportionally resized to stay around 3 MB for faster mobile downloads. The original Download output is not changed.
 
 1. Create an unsigned upload preset in Cloudinary.
 2. Restrict the preset to image formats such as PNG/JPEG/WebP and configure a dedicated asset folder.
@@ -64,11 +64,11 @@ src/
 Privacy is a first-class feature here:
 
 - **No photo upload by default.** A finished photo is uploaded to Cloudinary only after the user presses Share.
-- **All photos and gallery data live in the browser** on the user's device, in IndexedDB (`photobooth.photos`). Clearing browser data for the site wipes them.
+- **No hidden photo saving.** With Gallery disabled, finished photos are not automatically stored in IndexedDB.
 - **Shared photos become link-accessible.** Anyone with the generated URL or QR code can access the uploaded Cloudinary image.
-- Local storage is capped at 100 photos / 250 MB and 20 custom frames / 100 MB to keep long-running sessions responsive.
+- Custom-frame storage remains capped at 20 frames / 100 MB.
 - **Camera stream is explicitly stopped** the moment the user leaves the capture screen : the device indicator light turns off immediately.
-- A privacy banner on the Home screen and a header note on the Gallery screen make this explicit to the user.
+- A privacy banner on the Home screen explains when Cloudinary upload occurs.
 - Delete confirmations spell out that deletions are permanent.
 
 ## Roadmap (future phases)
