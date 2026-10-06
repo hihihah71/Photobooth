@@ -40,7 +40,12 @@ export function useCamera(active: boolean): {
         let stream: MediaStream;
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: facing },
+            video: {
+              facingMode: { ideal: facing },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              aspectRatio: { ideal: 16 / 9 },
+            },
             audio: false,
           });
         } catch {

@@ -465,6 +465,25 @@
   justify-items: center;
   gap: 8px;
 }
+.camera-switch-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 88px;
+}
+.camera-switch-button > span:first-child {
+  font-size: 20px;
+  line-height: 1;
+}
+.camera-rotate-hint {
+  display: none;
+  margin: 0;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+}
 .shutter-button {
   width: 80px;
   height: 80px;
@@ -1589,5 +1608,41 @@
   .shutter-button {
     width: 64px;
     height: 64px;
+  }
+}
+
+@media (max-width: 768px) and (orientation: portrait) {
+  .camera-rotate-hint {
+    display: block;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .capture-screen {
+    max-width: none;
+  }
+  .camera-view {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 104px;
+    align-items: center;
+    gap: 14px;
+  }
+  .camera-stage {
+    max-height: calc(100dvh - 112px);
+  }
+  .camera-controls {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    align-content: center;
+  }
+  .camera-switch-button {
+    order: 2;
+    min-width: 96px;
+  }
+  .shutter-button {
+    order: 1;
+  }
+  .shutter-spacer {
+    display: none;
   }
 }

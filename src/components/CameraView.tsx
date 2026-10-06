@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useCamera } from '../hooks/useCamera';
 import { captureFromVideo } from '../utils/captureFromVideo';
 import { Countdown } from './Countdown';
@@ -15,8 +15,24 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
   const { state, videoRef, switchFacing } = useCamera(true);
   const [counting, setCounting] = useState(false);
   const [flashing, setFlashing] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(orientation: landscape)').matches,
+  );
 
   const mirror = state.facing === 'user';
+  const stageAspect = targetAspect && targetAspect > 0
+    ? targetAspect
+    : isLandscape
+      ? 16 / 9
+      : 3 / 4;
+
+  useEffect(() => {
+    const query = window.matchMedia('(orientation: landscape)');
+    const updateOrientation = () => setIsLandscape(query.matches);
+    updateOrientation();
+    query.addEventListener('change', updateOrientation);
+    return () => query.removeEventListener('change', updateOrientation);
+  }, []);
 
   const handleShutter = useCallback(() => {
     if (state.status !== 'ready' || counting) return;
@@ -29,12 +45,12 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
     if (!video) return;
     setFlashing(true);
     try {
-      const blob = await captureFromVideo(video, { mirror, targetAspect });
+      const blob = await captureFromVideo(video, { mirror, targetAspect: stageAspect });
       onCapture(blob);
     } catch (err) {
       console.error('Capture failed', err);
     }
-  }, [videoRef, mirror, onCapture, targetAspect]);
+  }, [videoRef, mirror, onCapture, stageAspect]);
 
   if (state.status === 'denied') {
     return (
@@ -53,10 +69,6 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
       </div>
     );
   }
-
-  // The stage's visible region matches what the capture will encode.
-  // Without targetAspect, default to 4:3 for a familiar viewfinder shape.
-  const stageAspect = targetAspect && targetAspect > 0 ? targetAspect : 4 / 3;
 
   return (
     <div className="camera-view">
@@ -85,15 +97,19 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
           className="countdown-fullscreen"
         />
       )}
+      <p className="camera-rotate-hint" aria-hidden="true">
+        ↻ Rotate your phone sideways for landscape capture
+      </p>
       <div className="camera-controls">
         <button
           type="button"
-          className="btn btn-ghost"
+          className="btn btn-ghost camera-switch-button"
           onClick={switchFacing}
-          aria-label="Switch camera"
-          disabled={state.status !== 'ready'}
+          aria-label={`Switch to ${mirror ? 'rear' : 'front'} camera`}
+          disabled={state.status !== 'ready' || counting}
         >
-          ↻
+          <span aria-hidden="true">↻</span>
+          <span>{mirror ? 'Rear' : 'Front'}</span>
         </button>
         <button
           type="button"
