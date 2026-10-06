@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AppState, FrameConfig, SlotImage } from '../types';
 import type { Action } from '../state/appReducer';
 import { CameraView } from '../components/CameraView';
-import { StepIndicator } from '../components/StepIndicator';
 import { identityTransform } from '../utils/coverFit';
 import { loadValidatedImage } from '../utils/imageValidation';
+import { MAX_CAPTURE_PHOTOS, togglePhotoSelection } from '../utils/photoSelection';
 
 type Props = {
   state: AppState;
@@ -13,42 +13,91 @@ type Props = {
 };
 
 type Mode = 'camera' | 'upload';
-type PendingPhoto = { blob: Blob; image: HTMLImageElement; sourceUrl: string } | null;
+type PhotoCandidate = {
+  id: string;
+  slotImage: SlotImage;
+  /** True when this screen created the object URL and owns its cleanup. */
+  owned: boolean;
+};
 
 export function CaptureScreen({ state, frame, dispatch }: Props) {
+  const totalSlots = frame.slots.length;
   const [mode, setMode] = useState<Mode>('camera');
-  const [pending, setPending] = useState<PendingPhoto>(null);
+  const [pending, setPending] = useState<SlotImage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<PhotoCandidate[]>(() =>
+    state.slotImages.slice(0, totalSlots).flatMap((slotImage, index) =>
+      slotImage
+        ? [{ id: `existing-${index}-${slotImage.sourceUrl}`, slotImage, owned: false }]
+        : [],
+    ),
+  );
+  const [selectedIds, setSelectedIds] = useState<string[]>(() =>
+    candidates.slice(0, totalSlots).map((candidate) => candidate.id),
+  );
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingUrlRef = useRef<string | null>(null);
-
-  const totalSlots = frame.slots.length;
-  const activeSlot = state.activeSlot;
-  const filledCount = state.slotImages.slice(0, totalSlots).filter(Boolean).length;
+  const candidatesRef = useRef(candidates);
+  const transferredUrlsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    return () => {
-      if (pendingUrlRef.current) {
-        URL.revokeObjectURL(pendingUrlRef.current);
-        pendingUrlRef.current = null;
+    candidatesRef.current = candidates;
+  }, [candidates]);
+
+  useEffect(
+    () => () => {
+      if (pendingUrlRef.current) URL.revokeObjectURL(pendingUrlRef.current);
+      for (const candidate of candidatesRef.current) {
+        const url = candidate.slotImage.sourceUrl;
+        if (candidate.owned && !transferredUrlsRef.current.has(url)) {
+          URL.revokeObjectURL(url);
+        }
       }
-    };
-  }, []);
+    },
+    [],
+  );
+
+  const appendCandidates = useCallback(
+    (incoming: PhotoCandidate[]) => {
+      const room = Math.max(0, MAX_CAPTURE_PHOTOS - candidates.length);
+      const accepted = incoming.slice(0, room);
+      for (const rejected of incoming.slice(room)) {
+        if (rejected.owned) URL.revokeObjectURL(rejected.slotImage.sourceUrl);
+      }
+      if (accepted.length === 0) return;
+
+      setCandidates((current) => [...current, ...accepted]);
+      setSelectedIds((current) => {
+        const next = current.slice();
+        for (const candidate of accepted) {
+          if (next.length >= totalSlots) break;
+          next.push(candidate.id);
+        }
+        return next;
+      });
+    },
+    [candidates.length, totalSlots],
+  );
 
   const setPendingFromBlob = useCallback(async (blob: Blob) => {
+    if (candidates.length >= MAX_CAPTURE_PHOTOS) {
+      setError(`You can keep at most ${MAX_CAPTURE_PHOTOS} photos. Remove one to take another.`);
+      return;
+    }
     setError(null);
     const url = URL.createObjectURL(blob);
     try {
-      const img = await loadValidatedImage(blob);
+      const image = await loadValidatedImage(blob);
       if (pendingUrlRef.current) URL.revokeObjectURL(pendingUrlRef.current);
       pendingUrlRef.current = url;
-      setPending({ blob, image: img, sourceUrl: url });
+      setPending({ image, sourceUrl: url, transform: identityTransform });
     } catch (err) {
       URL.revokeObjectURL(url);
       setError(err instanceof Error ? err.message : 'Failed to load image');
       console.error('Failed to load image', err);
     }
-  }, []);
+  }, [candidates.length]);
 
   const handleCapture = useCallback(
     (blob: Blob) => {
@@ -60,8 +109,14 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
   const handleUpload = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
-      const list = Array.from(files);
-      setError(null);
+      const room = MAX_CAPTURE_PHOTOS - candidates.length;
+      if (room <= 0) {
+        setError(`You can keep at most ${MAX_CAPTURE_PHOTOS} photos. Remove one first.`);
+        return;
+      }
+
+      const list = Array.from(files).slice(0, room);
+      setError(files.length > room ? `Only the first ${room} photo(s) were added.` : null);
 
       try {
         if (list.length === 1) {
@@ -69,115 +124,121 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
           return;
         }
 
-        const projected = Array.from(
-          { length: totalSlots },
-          (_, index) => state.slotImages[index] ?? null,
-        );
-        const emptyIndices: number[] = [];
-        for (let offset = 0; offset < totalSlots; offset += 1) {
-          const index = (activeSlot + offset) % totalSlots;
-          if (!projected[index]) emptyIndices.push(index);
-        }
-        // If the user returned from Adjust with a full frame, treat a bulk
-        // selection as a replacement of the active slot instead of silently
-        // overwriting every following slot.
-        const targetIndices = emptyIndices.length > 0
-          ? emptyIndices
-          : [Math.min(activeSlot, totalSlots - 1)];
-        let changed = false;
-        let lastTarget = targetIndices[0];
-
-        for (let i = 0; i < list.length && i < targetIndices.length; i += 1) {
-          const file = list[i];
-          const target = targetIndices[i];
+        const loaded: PhotoCandidate[] = [];
+        for (const file of list) {
           try {
-            const img = await loadValidatedImage(file);
-            const url = URL.createObjectURL(file);
-            const slotImage: SlotImage = {
-              image: img,
-              sourceUrl: url,
+            const image = await loadValidatedImage(file);
+            loaded.push(createCandidate({
+              image,
+              sourceUrl: URL.createObjectURL(file),
               transform: identityTransform,
-            };
-            projected[target] = slotImage;
-            dispatch({ type: 'setSlotImage', index: target, image: slotImage });
-            changed = true;
-            lastTarget = target;
+            }));
           } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load an uploaded image');
             console.error('Failed to load uploaded image', err);
           }
         }
-
-        if (!changed) return;
-        const nextEmpty = projected.findIndex((slotImage) => slotImage === null);
-        dispatch({ type: 'setActiveSlot', index: nextEmpty >= 0 ? nextEmpty : lastTarget });
-        if (nextEmpty === -1) dispatch({ type: 'goto', step: 'adjust' });
+        appendCandidates(loaded);
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
     },
-    [activeSlot, totalSlots, dispatch, setPendingFromBlob, state.slotImages],
+    [appendCandidates, candidates.length, setPendingFromBlob],
   );
 
   const confirmPending = useCallback(() => {
     if (!pending) return;
-    const slotImage: SlotImage = {
-      image: pending.image,
-      sourceUrl: pending.sourceUrl,
-      transform: identityTransform,
-    };
-    dispatch({ type: 'setSlotImage', index: activeSlot, image: slotImage });
+    appendCandidates([createCandidate(pending)]);
     pendingUrlRef.current = null;
     setPending(null);
-
-    // Compute the next-empty index from a hypothetical post-dispatch state
-    // (the reducer hasn't applied yet, so state.slotImages is still stale).
-    const projected = state.slotImages.slice();
-    projected[activeSlot] = slotImage;
-    const nextEmpty = projected.slice(0, totalSlots).findIndex((s) => s === null);
-    if (nextEmpty === -1) {
-      dispatch({ type: 'goto', step: 'adjust' });
-    } else {
-      dispatch({ type: 'setActiveSlot', index: nextEmpty });
-    }
-  }, [pending, activeSlot, dispatch, state.slotImages, totalSlots]);
+  }, [appendCandidates, pending]);
 
   const retake = useCallback(() => {
-    if (pendingUrlRef.current) {
-      URL.revokeObjectURL(pendingUrlRef.current);
-      pendingUrlRef.current = null;
-    }
+    if (pendingUrlRef.current) URL.revokeObjectURL(pendingUrlRef.current);
+    pendingUrlRef.current = null;
     setPending(null);
   }, []);
+
+  const toggleCandidate = useCallback(
+    (id: string) => {
+      setError(null);
+      setSelectedIds((current) => togglePhotoSelection(current, id, totalSlots));
+    },
+    [totalSlots],
+  );
+
+  const removeCandidate = useCallback((id: string) => {
+    const candidate = candidates.find((item) => item.id === id);
+    if (!candidate) return;
+    if (candidate.owned) URL.revokeObjectURL(candidate.slotImage.sourceUrl);
+    setCandidates((current) => current.filter((item) => item.id !== id));
+    setSelectedIds((current) => current.filter((selectedId) => selectedId !== id));
+    setError(null);
+  }, [candidates]);
+
+  const confirmSelection = useCallback(() => {
+    if (selectedIds.length !== totalSlots) {
+      setError(`Select exactly ${totalSlots} photo${totalSlots === 1 ? '' : 's'} for this frame.`);
+      return;
+    }
+
+    const selected = selectedIds
+      .map((id) => candidates.find((candidate) => candidate.id === id))
+      .filter((candidate): candidate is PhotoCandidate => Boolean(candidate));
+    if (selected.length !== totalSlots) {
+      setError('One of the selected photos is no longer available. Select again.');
+      return;
+    }
+
+    selected.forEach((candidate, index) => {
+      if (candidate.owned) transferredUrlsRef.current.add(candidate.slotImage.sourceUrl);
+      dispatch({ type: 'setSlotImage', index, image: candidate.slotImage });
+    });
+    dispatch({ type: 'setActiveSlot', index: 0 });
+    dispatch({ type: 'goto', step: 'adjust' });
+  }, [candidates, dispatch, selectedIds, totalSlots]);
+
+  if (totalSlots > MAX_CAPTURE_PHOTOS) {
+    return (
+      <div className="screen capture-screen">
+        <header className="screen-header">
+          <button type="button" className="btn btn-ghost" onClick={() => dispatch({ type: 'reset' })}>
+            ← Back
+          </button>
+          <span className="screen-title">Capture</span>
+          <span />
+        </header>
+        <div className="camera-message">
+          <p className="warning">This frame has {totalSlots} slots, but a capture session supports at most {MAX_CAPTURE_PHOTOS}.</p>
+          <p className="muted">Choose another frame or edit this custom frame.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const atLimit = candidates.length >= MAX_CAPTURE_PHOTOS;
+  const ready = candidates.length >= totalSlots && selectedIds.length === totalSlots;
+  const remainingMinimum = Math.max(0, totalSlots - candidates.length);
 
   return (
     <div className="screen capture-screen">
       <header className="screen-header">
-        <button
-          type="button"
-          className="btn btn-ghost"
-          onClick={() => dispatch({ type: 'reset' })}
-        >
+        <button type="button" className="btn btn-ghost" onClick={() => dispatch({ type: 'reset' })}>
           ← Back
         </button>
-        <StepIndicator
-          current={filledCount + 1}
-          total={totalSlots}
-          label={`${frame.name} · slot ${activeSlot + 1}`}
-        />
+        <div className="capture-counter" aria-live="polite">
+          <strong>{candidates.length}/{MAX_CAPTURE_PHOTOS}</strong>
+          <span>{frame.name} · need {totalSlots}</span>
+        </div>
         <span />
       </header>
 
       {pending ? (
         <div className="capture-preview">
-          <img src={pending.sourceUrl} alt="Preview" className="capture-preview-image" />
+          <img src={pending.sourceUrl} alt="New photo preview" className="capture-preview-image" />
           <div className="capture-actions">
-            <button type="button" className="btn btn-ghost" onClick={retake}>
-              Retake
-            </button>
-            <button type="button" className="btn btn-primary" onClick={confirmPending}>
-              Use this photo
-            </button>
+            <button type="button" className="btn btn-ghost" onClick={retake}>Retake</button>
+            <button type="button" className="btn btn-primary" onClick={confirmPending}>Keep photo</button>
           </div>
         </div>
       ) : (
@@ -203,15 +264,13 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
             </button>
           </div>
 
-          {mode === 'camera' ? (
-            <CameraView
-              onCapture={handleCapture}
-              targetAspect={
-                frame.slots[activeSlot]
-                  ? frame.slots[activeSlot].width / frame.slots[activeSlot].height
-                  : undefined
-              }
-            />
+          {atLimit ? (
+            <div className="capture-limit-card">
+              <strong>6-photo limit reached</strong>
+              <span className="muted">Select the best photos below, or remove one to take another.</span>
+            </div>
+          ) : mode === 'camera' ? (
+            <CameraView onCapture={handleCapture} countdownSeconds={3} />
           ) : (
             <div className="upload-area">
               <input
@@ -220,7 +279,7 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
                 accept="image/*"
                 multiple
                 hidden
-                onChange={(e) => void handleUpload(e.target.files)}
+                onChange={(event) => void handleUpload(event.target.files)}
               />
               <button
                 type="button"
@@ -229,15 +288,77 @@ export function CaptureScreen({ state, frame, dispatch }: Props) {
               >
                 Choose photo(s)
               </button>
-              <p className="muted">
-                Pick {totalSlots - filledCount} more {totalSlots - filledCount === 1 ? 'photo' : 'photos'} to fill the frame.
-              </p>
+              <p className="muted">You can add {MAX_CAPTURE_PHOTOS - candidates.length} more.</p>
             </div>
           )}
         </>
       )}
-      {error && <p className="warning">{error}</p>}
+
+      {error && <p className="warning capture-error">{error}</p>}
+
+      {candidates.length > 0 && (
+        <section className="candidate-picker" aria-labelledby="candidate-picker-title">
+          <div className="candidate-picker-header">
+            <div>
+              <h2 id="candidate-picker-title">Choose photos for the frame</h2>
+              <p className="muted">
+                {remainingMinimum > 0
+                  ? `Take at least ${remainingMinimum} more.`
+                  : `Select ${totalSlots}. Selection order becomes slot order.`}
+              </p>
+            </div>
+            <span className="candidate-selection-count">{selectedIds.length}/{totalSlots} selected</span>
+          </div>
+
+          <ul className="candidate-grid">
+            {candidates.map((candidate) => {
+              const selectionIndex = selectedIds.indexOf(candidate.id);
+              const selected = selectionIndex >= 0;
+              return (
+                <li key={candidate.id} className="candidate-card">
+                  <button
+                    type="button"
+                    className={`candidate-tile ${selected ? 'selected' : ''}`}
+                    onClick={() => toggleCandidate(candidate.id)}
+                    aria-pressed={selected}
+                    aria-label={selected
+                      ? `Photo selected for slot ${selectionIndex + 1}`
+                      : 'Select this photo'}
+                  >
+                    <img src={candidate.slotImage.sourceUrl} alt="" />
+                    {selected && <span className="candidate-order">{selectionIndex + 1}</span>}
+                  </button>
+                  <button
+                    type="button"
+                    className="candidate-delete"
+                    onClick={() => removeCandidate(candidate.id)}
+                    aria-label="Remove this photo"
+                    title="Remove photo"
+                  >
+                    ×
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <button
+            type="button"
+            className="btn btn-primary candidate-confirm"
+            onClick={confirmSelection}
+            disabled={!ready}
+          >
+            Use selected photos
+          </button>
+        </section>
+      )}
     </div>
   );
 }
 
+function createCandidate(slotImage: SlotImage): PhotoCandidate {
+  const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `candidate-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  return { id, slotImage, owned: true };
+}

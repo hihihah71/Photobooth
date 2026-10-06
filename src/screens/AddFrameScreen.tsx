@@ -30,7 +30,7 @@ type DragState = {
 
 const HANDLES_CORNER: Handle[] = ['nw', 'ne', 'sw', 'se'];
 const HANDLES_EDGE: Handle[] = ['n', 's', 'e', 'w'];
-const MAX_CUSTOM_FRAME_SLOTS = 12;
+const MAX_CUSTOM_FRAME_SLOTS = 6;
 
 export function AddFrameScreen({ dispatch, onSave }: Props) {
   const [stage, setStage] = useState<'upload' | 'edit'>('upload');

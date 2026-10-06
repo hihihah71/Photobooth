@@ -37,6 +37,9 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          VITE_CLOUDINARY_CLOUD_NAME: ${{ vars.VITE_CLOUDINARY_CLOUD_NAME }}
+          VITE_CLOUDINARY_UPLOAD_PRESET: ${{ vars.VITE_CLOUDINARY_UPLOAD_PRESET }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3

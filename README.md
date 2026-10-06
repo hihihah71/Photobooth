@@ -1,6 +1,6 @@
 # Photobooth
 
-A frontend-only photobooth web app. Pick a frame, snap or upload photos, and compose them into a downloadable, shareable image. Mobile-first. Everything runs on the device : no backend.
+A frontend-only photobooth web app. Pick a frame, snap or upload photos, and compose them into a downloadable image. Mobile-first. Photos stay on the device unless the user explicitly creates a Cloudinary share link.
 
 Built with Vite 7 + React 19 + TypeScript.
 
@@ -14,6 +14,21 @@ npm run lint
 npm run test
 npm run build && npm run preview
 ```
+
+## QR sharing with Cloudinary
+
+The Share button uploads the finished photo using a Cloudinary unsigned upload preset, then displays a download link and QR code for phones.
+
+1. Create an unsigned upload preset in Cloudinary.
+2. Restrict the preset to image formats such as PNG/JPEG/WebP and configure a dedicated asset folder.
+3. Copy `.env.example` to `.env.local` and set:
+
+```bash
+VITE_CLOUDINARY_CLOUD_NAME=your-cloud-name
+VITE_CLOUDINARY_UPLOAD_PRESET=your-unsigned-upload-preset
+```
+
+For GitHub Pages, add the same values as repository variables and expose them to the build step. The preset name is necessarily visible in a browser build, so keep its permissions restricted and rotate it if abused.
 
 ## How it's organized
 
@@ -47,8 +62,9 @@ src/
 
 Privacy is a first-class feature here:
 
-- **No network requests** after the initial bundle. No analytics, no telemetry, no external scripts.
+- **No photo upload by default.** A finished photo is uploaded to Cloudinary only after the user presses Share.
 - **All photos and gallery data live in the browser** on the user's device, in IndexedDB (`photobooth.photos`). Clearing browser data for the site wipes them.
+- **Shared photos become link-accessible.** Anyone with the generated URL or QR code can access the uploaded Cloudinary image.
 - Local storage is capped at 100 photos / 250 MB and 20 custom frames / 100 MB to keep long-running sessions responsive.
 - **Camera stream is explicitly stopped** the moment the user leaves the capture screen : the device indicator light turns off immediately.
 - A privacy banner on the Home screen and a header note on the Gallery screen make this explicit to the user.

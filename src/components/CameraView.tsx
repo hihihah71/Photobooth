@@ -69,9 +69,6 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
           className="camera-video"
           style={{ transform: mirror ? 'scaleX(-1)' : undefined }}
         />
-        {counting && (
-          <Countdown seconds={countdownSeconds} onComplete={handleCountdownDone} />
-        )}
         {flashing && (
           <FlashOverlay duration={250} onDone={() => setFlashing(false)} />
         )}
@@ -81,6 +78,13 @@ export function CameraView({ onCapture, countdownSeconds = 3, targetAspect }: Pr
           </div>
         )}
       </div>
+      {counting && (
+        <Countdown
+          seconds={countdownSeconds}
+          onComplete={handleCountdownDone}
+          className="countdown-fullscreen"
+        />
+      )}
       <div className="camera-controls">
         <button
           type="button"

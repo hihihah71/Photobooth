@@ -53,7 +53,8 @@ export function HomeScreen({ dispatch, allFrames, customIds, onRemoveCustom }: P
       {privacyOpen && (
         <div className="privacy-banner" role="note">
           <span>
-            Your photos stay on this device. Nothing is uploaded. No servers, no tracking.
+            Photos stay on this device unless you press Share. Shared photos are uploaded to
+            Cloudinary so another device can download them.
           </span>
           <button
             type="button"

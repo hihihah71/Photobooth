@@ -3,8 +3,8 @@ import type { Action } from '../state/appReducer';
 import type { SavedPhoto } from '../types';
 import { useGallery } from '../hooks/useGallery';
 import { useObjectUrl } from '../hooks/useObjectUrl';
-import { useShare } from '../hooks/useShare';
 import { downloadBlob } from '../utils/download';
+import { CloudShareButton } from '../components/CloudShareButton';
 
 type Props = {
   dispatch: React.Dispatch<Action>;
@@ -131,7 +131,6 @@ function PhotoViewer({
   onDelete: () => Promise<void>;
 }) {
   const url = useObjectUrl(photo.blob);
-  const { canShare, share } = useShare();
   const [confirming, setConfirming] = useState(false);
 
   const filename = `photobooth-${photo.frameId}-${photo.id}.png`;
@@ -154,22 +153,7 @@ function PhotoViewer({
           >
             Download
           </button>
-          {canShare && (
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() =>
-                void share({
-                  blob: photo.blob,
-                  filename,
-                  title: photo.frameName,
-                  text: 'Made with Photobooth',
-                })
-              }
-            >
-              Share
-            </button>
-          )}
+          <CloudShareButton getBlob={() => photo.blob} filename={filename} />
           <button
             type="button"
             className="btn btn-ghost btn-danger"

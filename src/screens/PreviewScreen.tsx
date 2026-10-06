@@ -6,7 +6,7 @@ import type { CompositeCanvasHandle } from '../components/CompositeCanvas';
 import { downloadBlob } from '../utils/download';
 import { makeThumbnail } from '../utils/thumbnail';
 import { savePhoto } from '../utils/storage';
-import { useShare } from '../hooks/useShare';
+import { CloudShareButton } from '../components/CloudShareButton';
 
 type Props = {
   state: AppState;
@@ -21,10 +21,10 @@ export function PreviewScreen({ state, frame, dispatch }: Props) {
   const [saveState, setSaveState] = useState<SaveState>('pending');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
-  const { canShare, share } = useShare();
   const savedOnceRef = useRef(false);
 
-  const filename = `photobooth-${frame.id}-${Date.now()}.png`;
+  const filenameRef = useRef(`photobooth-${frame.id}-${Date.now()}.png`);
+  const filename = filenameRef.current;
   const revealClass = frame.revealAnimation ?? 'fade-in';
 
   useEffect(() => {
@@ -67,16 +67,11 @@ export function PreviewScreen({ state, frame, dispatch }: Props) {
     downloadBlob(blob, filename);
   }, [filename]);
 
-  const handleShare = useCallback(async () => {
+  const getCompositeBlob = useCallback(async () => {
     const handle = canvasRef.current;
-    if (!handle) return;
-    const blob = await handle.toBlob();
-    try {
-      await share({ blob, filename, title: frame.name, text: 'Made with Photobooth' });
-    } catch (err) {
-      console.error('Share failed', err);
-    }
-  }, [share, filename, frame.name]);
+    if (!handle) throw new Error('Photo is not ready yet.');
+    return handle.toBlob();
+  }, []);
 
   return (
     <div className="screen preview-screen">
@@ -119,11 +114,7 @@ export function PreviewScreen({ state, frame, dispatch }: Props) {
         <button type="button" className="btn btn-primary" onClick={handleDownload}>
           Download
         </button>
-        {canShare && (
-          <button type="button" className="btn btn-ghost" onClick={handleShare}>
-            Share
-          </button>
-        )}
+        <CloudShareButton getBlob={getCompositeBlob} filename={filename} />
         <button
           type="button"
           className="btn btn-ghost"
